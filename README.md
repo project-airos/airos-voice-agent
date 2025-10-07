@@ -75,6 +75,8 @@ airos-voice-agent/
     ├── setup-local.sh
     ├── setup-cloud.sh
     └── benchmark.py
+
+> **Note:** The `nodes/` directory is part of this repository and should remain under version control. These editable Python packages (`dora-asr`, `dora-speechmonitor`, `dora-primespeech`, `dora-text-segmenter`) are installed into the Docker image and local dev environments; don’t exclude them when committing or packaging the project.
 ```
 
 ---

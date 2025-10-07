@@ -1,12 +1,8 @@
 nodes:
   - id: wserver
-    # Note: Pre-installed in Docker image, spawned as static node with node connection
-    path: dora-openai-websocket
-    # Dora does not automatically pass arguments to binary nodes, so we
-    # explicitly request the websocket to attach using this node's id.
-    args:
-      - "--name"
-      - "wserver"
+    # Dynamic node - launched separately after dataflow starts
+    # The WebSocket server connects to this dataflow using: dora-openai-websocket --name wserver
+    path: dynamic
     inputs:
       audio: primespeech/audio
       asr_transcription: asr/transcription
@@ -44,7 +40,6 @@ nodes:
 
   # Speech detection and segmentation with pause/resume capability
   - id: speech-monitor
-    # Note: Pre-installed in Docker image, no build needed
     path: dora-speechmonitor
     inputs:
       audio:
@@ -74,7 +69,6 @@ nodes:
   
   # ASR transcription
   - id: asr
-    # Note: Pre-installed in Docker image, no build needed
     path: dora-asr
     inputs:
       audio:
@@ -118,7 +112,6 @@ nodes:
 
   # Text Segmenter - buffers LLM output and sends to TTS one segment at a time
   - id: text-segmenter
-    # Note: Pre-installed in Docker image, no build needed
     path: dora-text-segmenter
     inputs:
       text: maas-client/text  # From MaaS
@@ -137,7 +130,6 @@ nodes:
 
   # PrimeSpeech TTS
   - id: primespeech
-    # Note: Pre-installed in Docker image, no build needed
     path: dora-primespeech
     inputs:
       text: text-segmenter/text_segment  # From text segmenter (not directly from LLM)

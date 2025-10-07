@@ -46,9 +46,10 @@ if [ -f "${DATAFLOW_FILE}" ]; then
   echo "[airos] Starting dataflow: ${DATAFLOW_FILE} (name: ${DATAFLOW_NAME})"
   dora start "${DATAFLOW_FILE}" --name "${DATAFLOW_NAME}" --detach
 
-  sleep 2  # Give nodes time to start
+  # Give daemon time to register nodes so dynamic connections succeed
+  sleep 1
 
-  # Tail node logs if requested (runs in background while dataflow runs)
+  # Tail node logs if requested (runs in background)
   if [ -n "${TAIL_NODE_LOGS:-}" ]; then
     for NODE in $(echo "$TAIL_NODE_LOGS" | tr ',' ' '); do
       echo "[airos] Tailing logs for node: $NODE"
@@ -65,11 +66,11 @@ if [ -f "${DATAFLOW_FILE}" ]; then
     done
   fi
 
-  echo "[airos] ✅ All nodes started. WebSocket server running on ${HOST:-0.0.0.0}:${PORT:-8123}"
-  echo "[airos] Press Ctrl+C to stop"
+  echo "[airos] ✅ Dataflow started. Launching WebSocket server..."
+  echo "[airos] 🚀 WebSocket server on ${HOST:-0.0.0.0}:${PORT:-8123}"
 
-  # Wait for dataflow to finish (keeps container running)
-  wait
+  # Launch WebSocket server as dynamic node (connects to dataflow)
+  exec dora-openai-websocket -- --name "${WS_SERVER_NAME}"
 else
   echo "[airos] No ${DATAFLOW_FILE} found, skipping dataflow start"
 fi
