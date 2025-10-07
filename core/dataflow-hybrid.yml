@@ -1,0 +1,51 @@
+nodes:
+  - id: ws_in
+    operator: python:nodes/io/ws_server.py
+  - id: vad
+    operator: python:nodes/vad/speechmonitor.py
+    inputs:
+      audio: ws_in/audio_in
+  - id: asr
+    operator: python:nodes/asr/funasr_stream.py
+    env:
+      LOCALE: "zh-CN"
+    inputs:
+      audio: vad/segments
+  - id: text_mux
+    operator: python:nodes/util/text_mux.py
+    inputs:
+      text_from_ws: ws_in/text_in
+      text_from_asr: asr/text
+  - id: intent
+    operator: python:nodes/nlu/intent_router.py
+    inputs:
+      text: text_mux/text
+  - id: memory
+    operator: python:nodes/memory/local_mem.py
+  - id: tutor
+    operator: python:nodes/tutor/llm_orchestrator.py
+    env:
+      ROUTE: "cloud"
+      PROVIDER: "openai"
+    inputs:
+      text: intent/question
+      context: memory/context
+  - id: slides
+    operator: python:nodes/lecture/slide_engine.py
+    inputs:
+      control: intent/control
+      branch: tutor/branch
+  - id: tts
+    operator: python:nodes/tts/primespeech_stream.py
+    env:
+      VOICE: "zh-CN-female-1"
+    inputs:
+      text: tutor/answer_text
+  - id: ws_out
+    operator: python:nodes/io/ws_publisher.py
+    inputs:
+      asr_partial: asr/partial
+      asr_final: asr/text
+      answer_text: tutor/answer_text
+      tts_audio: tts/audio
+      slide_cmd: slides/cmd

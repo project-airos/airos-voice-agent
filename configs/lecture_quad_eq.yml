@@ -1,0 +1,51 @@
+id: quad_eq_v1
+title: "二次方程"
+locale: "zh-CN"
+sections:
+  - id: intro
+    title: "二次方程的定义"
+    html: |
+      <section>
+        <h2>二次方程的定义</h2>
+        <p>一般形式：<code>ax^2 + bx + c = 0</code>，其中 <code>a \neq 0</code>。</p>
+      </section>
+  - id: complete_square
+    title: "配方法"
+    html: |
+      <section>
+        <h2>配方法</h2>
+        <p>通过配方可将二次方程转化为 <code>(x + \frac{b}{2a})^2 = \frac{b^2 - 4ac}{4a^2}</code>。</p>
+      </section>
+  - id: quadratic_formula
+    title: "求根公式"
+    html: |
+      <section>
+        <h2>求根公式</h2>
+        <p>根为 <code>x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}</code>。</p>
+      </section>
+  - id: vieta
+    title: "维也塔公式"
+    html: |
+      <section>
+        <h2>维也塔公式</h2>
+        <p>若根为 <code>x_1, x_2</code>，则 <code>x_1 + x_2 = -\frac{b}{a}</code>，<code>x_1 x_2 = \frac{c}{a}</code>。</p>
+      </section>
+branches:
+  - id: vieta_alt_1
+    from: vieta
+    title: "维也塔公式的另一种证明（系数比较）"
+    slides:
+      - id: vieta_alt_1a
+        title: "系数比较法概述"
+        html: |
+          <section>
+            <h2>系数比较法概述</h2>
+            <p>从 <code>(x - x_1)(x - x_2)</code> 展开即可得到标准形式。</p>
+          </section>
+      - id: vieta_alt_1b
+        title: "推导细节"
+        html: |
+          <section>
+            <h2>推导细节</h2>
+            <p>展开并比较系数得到 <code>x_1 + x_2 = -\frac{b}{a}</code> 与 <code>x_1 x_2 = \frac{c}{a}</code>。</p>
+          </section>
