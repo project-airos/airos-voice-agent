@@ -2,7 +2,11 @@ nodes:
   - id: wserver
     # Note: Pre-installed in Docker image, spawned as static node with node connection
     path: dora-openai-websocket
-    args: --node
+    # Dora does not automatically pass arguments to binary nodes, so we
+    # explicitly request the websocket to attach using this node's id.
+    args:
+      - "--name"
+      - "wserver"
     inputs:
       audio: primespeech/audio
       asr_transcription: asr/transcription
