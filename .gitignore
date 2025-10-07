@@ -1,0 +1,161 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+VENV/
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Models (large files - never commit)
+*.ckpt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+*.pt
+models/
+*.h5
+*.pb
+*.tflite
+.dora/models/
+# Allow tracking model download scripts
+!*download*.py
+!*download*.sh
+
+# Audio/Video test files
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.m4a
+*.aac
+*.mp4
+*.avi
+*.mov
+# Allow reference/example audio
+!examples/**/*.wav
+!examples/**/*.mp3
+!test_audio_*.wav
+
+# Configuration files with secrets
+*.toml
+*.env
+.env.*
+*_config.toml
+maas_*.toml
+# Allow example configs
+!*.toml.example
+!*_config.toml.example
+!configs/*.toml.example
+
+# Dora generated files
+*.yml.lock
+dora-daemon.pid
+dora-coordinator.log
+.dora/cache/
+.dora/logs/
+.dora/*.log
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+*.db
+logs/
+out/
+outputs/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Documentation builds
+docs/_build/
+site/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# Generated dataflow files (from templates)
+*-[0-9]*.yml
+whisper-[0-9]*.yml
+dataflow-[0-9]*.yml
+
+# macOS audio debugging
+*.aiff
+
+# Benchmarking results
+benchmark_results/
+*.benchmark
+
+# User-specific paths (adjust as needed)
+# Uncomment if you don't want to track user-specific configs
+# ~/.dora/
