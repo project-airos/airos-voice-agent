@@ -140,15 +140,18 @@ cd /path/to/airos-voice-agent/examples/openai-realtime
 cp maas_config.toml.example maas_config.toml
 # Edit maas_config.toml with your API key
 
-# Start Dora
+# Start the Dora daemon (runs coordinator + runtime services)
 dora up
 
 # Build and start dataflow
 dora build dataflow.yml
 dora start dataflow.yml --name voice-agent --detach
 
-# Start WebSocket server
-dora-openai-websocket -- --name wserver
+# The WebSocket server is spawned as part of the dataflow.
+# Dora passes "--name wserver" automatically via dataflow.yml.
+
+# Inspect daemon/dataflow state (optional sanity check)
+dora status voice-agent
 ```
 
 ## Configuration
