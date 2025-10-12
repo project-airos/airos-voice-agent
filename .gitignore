@@ -79,6 +79,7 @@ maas_*.toml
 !*.toml.example
 !*_config.toml.example
 !configs/*.toml.example
+!.env.example
 
 # Dora generated files
 *.yml.lock
