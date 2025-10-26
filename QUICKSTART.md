@@ -124,6 +124,19 @@ docker compose --profile openai-realtime up server
 
 ## Verification
 
+### Smoke-test ASR and TTS
+
+After downloading models you can run a lightweight end-to-end smoke test that
+boots the ASR and TTS stacks inside the Docker image:
+
+```bash
+# From the repository root
+./docker/run-tests.sh --skip-build
+```
+
+Pass `--asr` or `--tts` to run only one of the checks. Use `--output-dir smoke`
+to persist the generated `primespeech-smoke.wav` file under `./smoke/`.
+
 ### Check Server Status
 
 ```bash
