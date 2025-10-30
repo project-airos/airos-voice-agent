@@ -74,6 +74,9 @@ def run_tts(output_dir: Optional[Path] = None) -> bool:
         MOYOYO_AVAILABLE,
     )
 
+    # Disable G2PW for smoke test to avoid dependency on optional model
+    os.environ["AIROS_ENABLE_G2PW"] = "False"
+
     config = PrimeSpeechConfig()
     voice_name = config.VOICE_NAME if config.VOICE_NAME in VOICE_CONFIGS else "Doubao"
     voice_config = VOICE_CONFIGS[voice_name].copy()

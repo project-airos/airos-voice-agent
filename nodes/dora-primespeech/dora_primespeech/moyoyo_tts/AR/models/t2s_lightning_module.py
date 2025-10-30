@@ -89,7 +89,7 @@ class Text2SemanticLightningModule(LightningModule):
 
         # In a full implementation, this would load weights into the actual model
         # For now, we just store them
-        return super().load_state_dict(state_dict, strict)
+        return super().load_state_dict(state_dict, strict=False)
 
     def state_dict(self):
         """

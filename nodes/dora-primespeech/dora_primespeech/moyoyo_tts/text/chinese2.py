@@ -20,9 +20,9 @@ pinyin_to_symbol_map = {
 
 import jieba_fast.posseg as psg
 
-# is_g2pw_str = os.environ.get("is_g2pw", "True")##默认开启
-# is_g2pw = False#True if is_g2pw_str.lower() == 'true' else False
-is_g2pw = True  # True if is_g2pw_str.lower() == 'true' else False
+# Enable G2PW for Chinese pinyin conversion (can be disabled via environment variable)
+is_g2pw_str = os.environ.get("AIROS_ENABLE_G2PW", "True")
+is_g2pw = True if is_g2pw_str.lower() == 'true' else False
 if is_g2pw:
     # print("当前使用g2pw进行拼音推理")
     from moyoyo_tts.text.g2pw import G2PWPinyin, correct_pronunciation
