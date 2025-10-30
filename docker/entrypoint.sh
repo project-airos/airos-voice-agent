@@ -19,7 +19,7 @@ for i in $(seq 1 30); do
 done
 
 # Configuration with defaults
-EXAMPLE_DIR="${EXAMPLE_DIR:-/opt/airos/examples/openai-realtime}"
+EXAMPLE_DIR="${EXAMPLE_DIR:-/opt/airos}"
 DATAFLOW_FILE="${DATAFLOW_FILE:-dataflow.yml}"
 DATAFLOW_NAME="${DATAFLOW_NAME:-voice-agent}"
 WS_SERVER_NAME="${WS_SERVER_NAME:-wserver}"

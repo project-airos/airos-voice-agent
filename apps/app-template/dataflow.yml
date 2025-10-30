@@ -1,0 +1,64 @@
+# Dora dataflow definition for {{APP_NAME}}
+# This defines the pipeline of nodes that process audio → text → LLM → audio
+
+nodes:
+  # Dynamic node - started manually via WebSocket server
+  - id: wserver
+    path: dynamic
+    inputs:
+      audio: primespeech/audio           # Audio from TTS
+      asr_transcription: asr/transcription
+      speech_started: speech-monitor/speech_started
+      question_ended: speech-monitor/question_ended
+      segment_complete: primespeech/segment_complete
+    outputs:
+      - audio  # From WebSocket client
+      - text   # Greetings/commands
+
+  # Static nodes - auto-started by Dora daemon
+  - id: speech-monitor
+    path: dora-speechmonitor
+    build: pip install -e ../../nodes/dora-speechmonitor
+    inputs:
+      audio: wserver/audio
+    outputs: [speech_started, speech_ended, question_ended, audio_segment]
+    env:
+      VAD_THRESHOLD: 0.5
+      QUESTION_END_SILENCE_MS: 1500
+
+  - id: asr
+    path: dora-asr
+    build: pip install -e ../../nodes/dora-asr
+    inputs:
+      audio: speech-monitor/audio_segment
+    outputs: [transcription]
+    env:
+      ASR_ENGINE: funasr
+      LANGUAGE: zh
+
+  - id: maas-client
+    path: dora-maas-client
+    inputs:
+      text: asr/transcription
+      text_to_audio: wserver/text
+    outputs: [text]
+    env:
+      MAAS_CONFIG_PATH: /opt/airos/config.toml
+
+  - id: text-segmenter
+    path: dora-text-segmenter
+    build: pip install -e ../../nodes/dora-text-segmenter
+    inputs:
+      text: maas-client/text
+      tts_complete: primespeech/segment_complete
+    outputs: [text_segment]
+
+  - id: primespeech
+    path: dora-primespeech
+    build: pip install -e ../../nodes/dora-primespeech
+    inputs:
+      text: text-segmenter/text_segment
+    outputs: [audio, segment_complete]
+    env:
+      VOICE_NAME: Doubao
+      TEXT_LANG: zh

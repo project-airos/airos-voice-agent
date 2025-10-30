@@ -1,7 +1,7 @@
 #############################
 # Airos Voice Agent - Base Image
 # Multi-stage build: Builder + Runtime
-# This is the main Dockerfile used by all applications
+# This template is reused across all voice applications
 #############################
 
 #############################
@@ -120,7 +120,7 @@ WORKDIR /opt/airos
 # Expose WebSocket port (apps can override with different ports)
 EXPOSE 8123
 
-# Entrypoint script
+# Entrypoint script (can be overridden by apps)
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

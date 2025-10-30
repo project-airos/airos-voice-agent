@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # Model downloader - runs once to populate the models volume
+  downloader:
+    image: airos-voice-agent:latest
+    user: "${UID:-1000}:${GID:-1000}"
+    entrypoint: ["bash", "-c"]
+    command: |
+      echo "🔽 Starting model downloads for OpenAI Chat..." &&
+      echo "📁 Target directory: /root/.dora/models" &&
+      cd /opt/airos/scripts/models &&
+      echo "⬇️  Downloading FunASR models (Chinese ASR, ~2GB)..." &&
+      python download_models.py --download funasr &&
+      echo "✅ FunASR downloaded" &&
+      echo "⬇️  Downloading PrimeSpeech base models (~8GB)..." &&
+      python download_models.py --download primespeech &&
+      echo "✅ PrimeSpeech base models downloaded" &&
+      echo "⬇️  Downloading voice models..." &&
+      python download_models.py --download voices --voices "Doubao,Luo Xiang,Maple,Cove" &&
+      echo "✅ Voice models downloaded" &&
+      echo "📊 Model download summary:" &&
+      du -sh /root/.dora/models/* &&
+      echo "🎉 All models downloaded successfully!"
+    environment:
+      HOME: /root
+      HF_HOME: /root/.cache/huggingface
+      TRANSFORMERS_CACHE: /root/.cache/huggingface
+      HUGGINGFACE_HUB_CACHE: /root/.cache/huggingface
+    volumes:
+      - ${MODELS_DIR:?Please set MODELS_DIR}:/root/.dora/models
+      - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
+    profiles: [setup]
+
+  # Application server
+  server:
+    image: airos-voice-agent:latest
+    ports:
+      - "${APP_PORT:-8123}:${APP_PORT:-8123}"
+    env_file:
+      - ${ENV_FILE:-.env}
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    environment:
+      HOST: 0.0.0.0
+      PORT: ${APP_PORT:-8123}
+      RUST_LOG: ${RUST_LOG:-info}
+      SKIP_DORA_BUILD: "0"
+
+      # Application-specific paths
+      APP_NAME: openai-chat
+      EXAMPLE_DIR: /opt/airos/apps/openai-chat
+      DATAFLOW_FILE: dataflow.yml
+      DATAFLOW_NAME: voice-agent
+      WS_SERVER_NAME: wserver
+
+      # MaaS configuration
+      MAAS_CONFIG_PATH: /opt/airos/apps/openai-chat/maas_config.toml
+      SPAWN_MAAS: "0"
+
+      # API Keys (from .env)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+      # Model paths
+      ASR_ENGINE: ${ASR_ENGINE:-funasr}
+      ASR_MODELS_DIR: /root/.dora/models/asr
+      PRIMESPEECH_MODEL_DIR: /root/.dora/models/primespeech
+      FUNASR_DISABLE_UPDATE: "true"
+
+      # Logging
+      TAIL_NODE_LOGS: ${TAIL_NODE_LOGS:-wserver}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+    volumes:
+      - ${REPO_DIR:-..}:/opt/airos
+      - ${MODELS_DIR:?Please set MODELS_DIR}:/root/.dora/models:ro
+      - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
+      - browser-data:/tmp/browser-data
+    depends_on:
+      - downloader
+    profiles: [openai-chat]
+
+  # Smoke tests for the application
+  tests:
+    image: airos-voice-agent:latest
+    env_file:
+      - ${ENV_FILE:-.env}
+    entrypoint: ["python", "/opt/airos/docker/tests/asr_tts_smoke.py"]
+    environment:
+      HOST: 0.0.0.0
+      ASR_ENGINE: ${ASR_ENGINE:-funasr}
+      ASR_MODELS_DIR: /root/.dora/models/asr
+      PRIMESPEECH_MODEL_DIR: /root/.dora/models/primespeech
+      FUNASR_DISABLE_UPDATE: "true"
+    working_dir: /opt/airos
+    volumes:
+      - ${REPO_DIR:-..}:/opt/airos
+      - ${MODELS_DIR:?Please set MODELS_DIR}:/root/.dora/models
+      - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
+    profiles: [tests]
+
+  # Development notebook (optional)
+  notebook:
+    image: airos-voice-agent:latest
+    ports:
+      - "${JUPYTER_PORT:-8888}:8888"
+    env_file:
+      - ${ENV_FILE:-.env}
+    environment:
+      JUPYTER_PORT: 8888
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN:-airos}
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+    working_dir: /opt/airos
+    volumes:
+      - ${REPO_DIR:-..}:/opt/airos
+      - ${MODELS_DIR:?Please set MODELS_DIR}:/root/.dora/models:ro
+      - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
+    profiles: [dev]
+
+volumes:
+  browser-data:
+    driver: local
