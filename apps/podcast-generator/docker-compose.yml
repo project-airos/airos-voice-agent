@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  # Model downloader - runs once to populate the models volume
+  downloader:
+    image: airos-voice-agent:latest
+    user: "${UID:-1000}:${GID:-1000}"
+    entrypoint: ["bash", "-c"]
+    command: |
+      echo "🔽 Starting model downloads for Podcast Generator..." &&
+      echo "📁 Target directory: /root/.dora/models" &&
+      cd /opt/airos/scripts/models &&
+      echo "⬇️  Downloading FunASR models (Chinese ASR, ~2GB)..." &&
+      python download_models.py --download funasr &&
+      echo "✅ FunASR downloaded" &&
+      echo "⬇️  Downloading PrimeSpeech base models (~8GB)..." &&
+      python download_models.py --download primespeech &&
+      echo "✅ PrimeSpeech base models downloaded" &&
+      echo "⬇️  Downloading voice models (Doubao, Luo Xiang)..." &&
+      python download_models.py --download voices --voices "Doubao,Luo Xiang" &&
+      echo "✅ Voice models downloaded" &&
+      echo "📊 Model download summary:" &&
+      du -sh /root/.dora/models/* &&
+      echo "🎉 All models downloaded successfully!"
+    environment:
+      HOME: /root
+      HF_HOME: /root/.cache/huggingface
+      TRANSFORMERS_CACHE: /root/.cache/huggingface
+      HUGGINGFACE_HUB_CACHE: /root/.cache/huggingface
+    volumes:
+      - ${MODELS_DIR:?Please set MODELS_DIR}:/root/.dora/models
+      - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
+    profiles: [setup]
+
+  # Start static TTS nodes
+  server:
+    image: airos-voice-agent:latest
+    env_file:
+      - ${ENV_FILE:-.env}
+    entrypoint: ["bash", "-c"]
+    command: |
+      echo "🚀 Starting Podcast Generator dataflow..." &&
+      dora destroy 2>/dev/null || true &&
+      dora up &&
+      sleep 2 &&
+      echo "📋 Building dataflow..." &&
+      cd /opt/airos/apps/podcast-generator &&
+      dora build dataflow.yml &&
+      echo "▶️  Starting static nodes..." &&
+      dora start dataflow.yml --name podcast-generator --detach &&
+      echo "⏳ Waiting for nodes to initialize..." &&
+      sleep 5 &&
+      echo "✅ Static nodes started. Dataflow is ready!" &&
+      echo "📝 Now run the dynamic nodes in separate terminals:" &&
+      echo "   1. python voice_output.py --output-file output/podcast.wav" &&
+      echo "   2. python script_segmenter.py --input-file scripts/example_podcast.md" &&
+      echo "   3. python viewer.py (optional)" &&
+      echo "" &&
+      echo "🔄 To monitor the dataflow:" &&
+      echo "   dora logs podcast-generator" &&
+      tail -f /dev/null
+    environment:
+      HOME: /root
+      RUST_LOG: ${RUST_LOG:-info}
+
+      # Application-specific paths
+      APP_NAME: podcast-generator
+      EXAMPLE_DIR: /opt/airos/apps/podcast-generator
+      DATAFLOW_FILE: dataflow.yml
+      DATAFLOW_NAME: podcast-generator
+
+      # Model paths
+      ASR_ENGINE: ${ASR_ENGINE:-funasr}
+      ASR_MODELS_DIR: /root/.dora/models/asr
+      PRIMESPEECH_MODEL_DIR: /root/.dora/models/primespeech
+      FUNASR_DISABLE_UPDATE: "true"
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+    volumes:
+      - ${REPO_DIR:-../..}:/opt/airos
+      - ${MODELS_DIR:?Please set MODELS_DIR}:/root/.dora/models:ro
+      - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
+    depends_on:
+      - downloader
+    profiles: [podcast-generator]
+
+  # Smoke tests
+  tests:
+    image: airos-voice-agent:latest
+    env_file:
+      - ${ENV_FILE:-.env}
+    entrypoint: ["python", "/opt/airos/docker/tests/asr_tts_smoke.py"]
+    environment:
+      HOST: 0.0.0.0
+      ASR_ENGINE: ${ASR_ENGINE:-funasr}
+      ASR_MODELS_DIR: /root/.dora/models/asr
+      PRIMESPEECH_MODEL_DIR: /root/.dora/models/primespeech
+      FUNASR_DISABLE_UPDATE: "true"
+    working_dir: /opt/airos
+    volumes:
+      - ${REPO_DIR:-../..}:/opt/airos
+      - ${MODELS_DIR:?Please set MODELS_DIR}:/root/.dora/models
+      - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
+    profiles: [tests]
+
+  # Development notebook
+  notebook:
+    image: airos-voice-agent:latest
+    ports:
+      - "${JUPYTER_PORT:-8888}:8888"
+    env_file:
+      - ${ENV_FILE:-.env}
+    environment:
+      JUPYTER_PORT: 8888
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN:-airos}
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+    working_dir: /opt/airos
+    volumes:
+      - ${REPO_DIR:-../..}:/opt/airos
+      - ${MODELS_DIR:?Please set MODELS_DIR}:/root/.dora/models:ro
+      - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
+    profiles: [dev]
+
+volumes:
+  browser-data:
+    driver: local

@@ -1,0 +1,105 @@
+nodes:
+  # Script generator (DYNAMIC - accepts topic input, generates script)
+  - id: script-generator
+    path: dynamic
+    outputs:
+      - script
+      - complete
+      - log
+    inputs:
+      topic: web-server/topic  # From WebSocket server
+    env:
+      LLM_PROVIDER: openai
+      SCRIPT_DURATION: 5
+
+  # WebSocket server for topic input (DYNAMIC)
+  - id: web-server
+    path: dynamic
+    outputs:
+      - topic
+      - log
+    inputs:
+      script_complete: script-segmenter/script_complete
+    env:
+      PORT: 8123
+      TOPIC_MODE: "true"  # Special mode to accept topic instead of audio
+
+  # Script saver (DYNAMIC - saves generated script to file)
+  - id: script-saver
+    path: dynamic
+    outputs:
+      - log
+    inputs:
+      script: script-generator/script
+      complete: script-generator/complete
+
+  # Script segmenter (DYNAMIC - processes the generated script)
+  - id: script-segmenter
+    path: dynamic
+    outputs:
+      - daniu_text
+      - yifan_text
+      - script_complete
+      - log
+    inputs:
+      daniu_segment_complete: primespeech-daniu/segment_complete
+      yifan_segment_complete: primespeech-yifan/segment_complete
+      script: script-generator/script
+
+  # PrimeSpeech TTS for 大牛 (Luo Xiang voice)
+  - id: primespeech-daniu
+    build: pip install -e ../../nodes/dora-primespeech
+    path: dora-primespeech
+    inputs:
+      text: script-segmenter/daniu_text
+    outputs:
+      - audio
+      - segment_complete
+      - log
+    env:
+      VOICE_NAME: "Luo Xiang"
+      TEXT_LANG: "zh"
+      PRIMESPEECH_MODEL_DIR: "/root/.dora/models/primespeech"
+      LOG_LEVEL: "INFO"
+
+  # PrimeSpeech TTS for 一帆 (Doubao voice)
+  - id: primespeech-yifan
+    build: pip install -e ../../nodes/dora-primespeech
+    path: dora-primespeech
+    inputs:
+      text: script-segmenter/yifan_text
+    outputs:
+      - audio
+      - segment_complete
+      - log
+    env:
+      VOICE_NAME: "Doubao"
+      TEXT_LANG: "zh"
+      PRIMESPEECH_MODEL_DIR: "/root/.dora/models/primespeech"
+      LOG_LEVEL: "INFO"
+
+  # Voice output (DYNAMIC - concatenates audio with silence)
+  - id: voice-output
+    path: dynamic
+    outputs:
+      - log
+    inputs:
+      daniu_audio: primespeech-daniu/audio
+      yifan_audio: primespeech-yifan/audio
+      daniu_segment_complete: primespeech-daniu/segment_complete
+      yifan_segment_complete: primespeech-yifan/segment_complete
+      script_complete: script-segmenter/script_complete
+
+  # Viewer (DYNAMIC - optional monitoring)
+  - id: viewer
+    path: dynamic
+    inputs:
+      generator_log: script-generator/log
+      segmenter_log: script-segmenter/log
+      daniu_log: primespeech-daniu/log
+      yifan_log: primespeech-yifan/log
+      output_log: voice-output/log
+      web_log: web-server/log
+      daniu_text: script-segmenter/daniu_text
+      yifan_text: script-segmenter/yifan_text
+      script_complete: script-segmenter/script_complete
