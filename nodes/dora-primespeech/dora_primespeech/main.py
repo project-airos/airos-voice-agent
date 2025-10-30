@@ -226,6 +226,16 @@ def main():
                     _validate_models_path(lambda lvl, msg: send_log(node, lvl, msg, config.LOG_LEVEL))
 
                     try:
+                        # Check if models exist, download if needed
+                        if not model_manager.check_models_exist(voice_name, voice_config):
+                            send_log(node, "INFO", f"Downloading models for {voice_name}...", config.LOG_LEVEL)
+                            try:
+                                model_paths = model_manager.get_voice_model_paths(voice_name, voice_config)
+                                send_log(node, "INFO", "Models downloaded successfully", config.LOG_LEVEL)
+                            except Exception as download_err:
+                                send_log(node, "WARNING", f"Model download failed: {download_err}", config.LOG_LEVEL)
+                                send_log(node, "WARNING", "Will attempt to continue with existing models or placeholders", config.LOG_LEVEL)
+
                         # Always use PRIMESPEECH_MODEL_DIR
                         send_log(node, "INFO", "Using PRIMESPEECH_MODEL_DIR for models...", config.LOG_LEVEL)
                         # Initialize TTS engine
