@@ -9,7 +9,7 @@ import json
 import time
 import os
 import re
-from typing import Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 from dora import Node
 import pyarrow as pa
 
@@ -228,30 +228,41 @@ def main():
     completed_segments = 0
     daniu_completed = 0
     yifan_completed = 0
-    active_speaker: Optional[str] = None
+    in_flight: Dict[str, Optional[int]] = {"daniu": None, "yifan": None}
 
-    def send_next_segment() -> bool:
-        """Send the next segment in script order if no segment is active."""
-        nonlocal next_segment_idx, active_speaker
+    def try_dispatch_segments() -> bool:
+        """Try to dispatch as many segments as possible while maintaining script order."""
+        nonlocal next_segment_idx
+        dispatched = False
 
-        if active_speaker is not None:
-            return False
+        while next_segment_idx < total_segments:
+            speaker, segment = ordered_chunks[next_segment_idx]
 
-        if next_segment_idx >= total_segments:
-            return False
+            # Only dispatch when the speaker has no in-flight segment
+            if in_flight.get(speaker) is not None:
+                break
 
-        speaker, segment = ordered_chunks[next_segment_idx]
-        next_segment_idx += 1
-        active_speaker = speaker
+            segment_index = next_segment_idx
+            next_segment_idx += 1
+            in_flight[speaker] = segment_index
 
-        if speaker == "daniu":
-            send_log(node, "INFO", f"大牛: {segment}", args.log_level)
-            node.send_output("daniu_text", pa.array([segment]))
-        else:
-            send_log(node, "INFO", f"一帆: {segment}", args.log_level)
-            node.send_output("yifan_text", pa.array([segment]))
+            metadata = {
+                "segment_index": segment_index,
+                "total_segments": total_segments,
+                "segments_remaining": max(total_segments - segment_index - 1, 0),
+                "speaker": speaker,
+            }
 
-        return True
+            if speaker == "daniu":
+                send_log(node, "INFO", f"大牛[{segment_index}]: {segment}", args.log_level)
+                node.send_output("daniu_text", pa.array([segment]), metadata=metadata)
+            else:
+                send_log(node, "INFO", f"一帆[{segment_index}]: {segment}", args.log_level)
+                node.send_output("yifan_text", pa.array([segment]), metadata=metadata)
+
+            dispatched = True
+
+        return dispatched
 
     def all_segments_sent() -> bool:
         return next_segment_idx >= total_segments
@@ -264,9 +275,8 @@ def main():
         node.send_output("script_complete", pa.array([True]))
 
     # Prime the pipeline with the first segment (if any)
-    initial_segment_sent = send_next_segment()
-
-    if not initial_segment_sent and total_segments == 0:
+    dispatched_initial = try_dispatch_segments()
+    if not dispatched_initial and total_segments == 0:
         finalize_script()
         return
 
@@ -287,19 +297,24 @@ def main():
         if event_id == "daniu_segment_complete":
             send_log(node, "DEBUG", "Received daniu_segment_complete", args.log_level)
             daniu_completed += 1
+            completed_segments += 1
 
-            if active_speaker != "daniu":
+            metadata = event.get("metadata", {})
+            segment_index = metadata.get("segment_index")
+
+            if segment_index is None:
+                segment_index = in_flight.get("daniu")
                 send_log(
                     node,
                     "WARNING",
-                    "Received daniu_segment_complete without matching active segment.",
+                    f"daniu_segment_complete missing segment_index metadata. "
+                    f"Falling back to in-flight mapping ({segment_index}).",
                     args.log_level,
                 )
-            else:
-                active_speaker = None
-                completed_segments += 1
 
-            send_next_segment()
+            in_flight["daniu"] = None
+
+            try_dispatch_segments()
 
             if not script_complete_sent and all_segments_sent() and all_segments_completed():
                 finalize_script()
@@ -309,19 +324,24 @@ def main():
         elif event_id == "yifan_segment_complete":
             send_log(node, "DEBUG", "Received yifan_segment_complete", args.log_level)
             yifan_completed += 1
+            completed_segments += 1
 
-            if active_speaker != "yifan":
+            metadata = event.get("metadata", {})
+            segment_index = metadata.get("segment_index")
+
+            if segment_index is None:
+                segment_index = in_flight.get("yifan")
                 send_log(
                     node,
                     "WARNING",
-                    "Received yifan_segment_complete without matching active segment.",
+                    "yifan_segment_complete missing segment_index metadata. "
+                    f"Falling back to in-flight mapping ({segment_index}).",
                     args.log_level,
                 )
-            else:
-                active_speaker = None
-                completed_segments += 1
 
-            send_next_segment()
+            in_flight["yifan"] = None
+
+            try_dispatch_segments()
 
             if not script_complete_sent and all_segments_sent() and all_segments_completed():
                 finalize_script()

@@ -22,16 +22,18 @@ print_header() {
 
 usage() {
     cat <<EOF
-Usage: $0 <topic> [duration_minutes] [llm_provider] [output_file] [tts_backend]
+Usage: $0 [--topic-file FILE] <topic> [duration_minutes] [llm_provider] [output_file] [tts_backend]
 
 Arguments:
-  topic          - Topic for the podcast (required)
+  --topic-file   - Read topic prompt from FILE (multiline supported). Overrides inline topic argument.
+  topic          - Topic for the podcast (required if --topic-file not provided)
   duration       - Duration in minutes (default: 5)
   llm_provider   - openai or anthropic (default: openai)
   output_file    - Output WAV file path (default: output/ai_generated_podcast.wav)
-  tts_backend    - primespeech or minimax (default: primespeech)
+  tts_backend    - minimax or primespeech (default: minimax)
 
 Examples:
+  $0 --topic-file prompts/startup_panel.txt 6 openai output/startup.wav
   $0 '人工智能的未来' 5 openai output/ai.wav primespeech
   $0 '区块链技术' 10 anthropic output/blockchain.wav minimax
   $0 '可再生能源'
@@ -120,11 +122,79 @@ fi
 # Parse arguments
 # -----------------------------------------------------------------------------
 
-TOPIC="${1:-}"
-DURATION="${2:-5}"
-PROVIDER="${3:-openai}"
-OUTPUT_FILE="${4:-output/ai_generated_podcast.wav}"
-TTS_BACKEND="${5:-primespeech}"  # primespeech or minimax
+TOPIC_FILE=""
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --topic-file)
+            if [[ $# -lt 2 ]]; then
+                echo "❌ Error: --topic-file requires a file path argument."
+                usage
+                exit 1
+            fi
+            TOPIC_FILE="$2"
+            shift 2
+            ;;
+        --topic-file=*)
+            TOPIC_FILE="${1#*=}"
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            echo "❌ Error: Unknown option: $1"
+            usage
+            exit 1
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [[ $# -gt 0 ]]; then
+    POSITIONAL_ARGS+=("$@")
+fi
+
+set -- "${POSITIONAL_ARGS[@]}"
+
+if [ -n "$TOPIC_FILE" ]; then
+    if [ ! -f "$TOPIC_FILE" ]; then
+        echo "❌ Error: Topic file not found: $TOPIC_FILE"
+        exit 1
+    fi
+    TOPIC="$(cat "$TOPIC_FILE")"
+else
+    TOPIC="${1:-}"
+    if [ $# -gt 0 ]; then
+        shift
+    fi
+fi
+
+DURATION="${1:-5}"
+if [ $# -gt 0 ]; then
+    shift
+fi
+
+PROVIDER="${1:-openai}"
+if [ $# -gt 0 ]; then
+    shift
+fi
+
+OUTPUT_FILE="${1:-output/ai_generated_podcast.wav}"
+if [ $# -gt 0 ]; then
+    shift
+fi
+
+TTS_BACKEND="${1:-minimax}"  # minimax or primespeech
 
 if [ -z "$TOPIC" ]; then
     usage
@@ -194,7 +264,12 @@ if [ ! -f "$DATAFLOW_FILE" ]; then
 fi
 
 print_header
-echo "📝 Topic: $TOPIC"
+if [ -n "$TOPIC_FILE" ]; then
+    echo "🗂️  Topic file: $TOPIC_FILE"
+fi
+echo "📝 Topic:"
+echo "$TOPIC"
+echo ""
 echo "⏱️  Duration: ${DURATION} minutes"
 echo "🤖 LLM Provider: $PROVIDER"
 echo "🎤 TTS Backend: $TTS_BACKEND"

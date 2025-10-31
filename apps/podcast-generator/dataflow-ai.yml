@@ -48,7 +48,7 @@ nodes:
 
   # PrimeSpeech TTS for 大牛 (Luo Xiang voice)
   - id: primespeech-daniu
-    build: pip install -e ../../nodes/dora-primespeech
+    build: pip install -r ../../nodes/dora-primespeech/requirements_simple.txt
     path: dora-primespeech
     inputs:
       text: script-segmenter/daniu_text
@@ -64,7 +64,7 @@ nodes:
 
   # PrimeSpeech TTS for 一帆 (Doubao voice)
   - id: primespeech-yifan
-    build: pip install -e ../../nodes/dora-primespeech
+    build: pip install -r ../../nodes/dora-primespeech/requirements_simple.txt
     path: dora-primespeech
     inputs:
       text: script-segmenter/yifan_text
