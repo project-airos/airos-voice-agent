@@ -12,6 +12,11 @@ This is the **fastest way to get started** - no model downloads required!
 
 ## 🚀 Quick Start
 
+> 🔧 **One-time setup:** Build the project Docker image from the repo root:
+> ```bash
+> docker build --no-cache -t airos-voice-agent:latest -f docker/Dockerfile .
+> ```
+
 ### Step 1: Set API Keys
 
 ```bash

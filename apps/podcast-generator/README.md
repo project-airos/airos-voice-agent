@@ -16,6 +16,8 @@ This application demonstrates:
 
 **New!** Generate a complete podcast from just a topic:
 
+> 🔧 **One-time setup:** From the repo root run `docker build --no-cache -t airos-voice-agent:latest -f docker/Dockerfile .` so the shared base image is available.
+
 ### Option 1: Local TTS (PrimeSpeech)
 Requires model download but offline-capable:
 ```bash
