@@ -97,6 +97,7 @@ dora-coordinator.log
 logs/
 out/
 outputs/
+apps/podcast-generator/output/
 
 # OS files
 .DS_Store

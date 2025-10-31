@@ -9,7 +9,7 @@ import json
 import time
 import os
 import re
-from typing import List, Tuple, Iterable
+from typing import Iterable, List, Optional, Tuple
 from dora import Node
 import pyarrow as pa
 
@@ -118,8 +118,8 @@ def split_long_text(
     return chunks
 
 
-def parse_markdown(filename: str, node=None, log_level="INFO") -> Tuple[List[str], List[str]]:
-    """Parse markdown file and extract speaker segments.
+def parse_markdown(filename: str, node=None, log_level="INFO") -> List[Tuple[str, str]]:
+    """Parse markdown file and extract ordered speaker segments.
 
     Args:
         filename: Path to markdown file
@@ -127,17 +127,16 @@ def parse_markdown(filename: str, node=None, log_level="INFO") -> Tuple[List[str
         log_level: Log level for filtering
 
     Returns:
-        Tuple of (daniu_segments, yifan_segments) as lists of strings
+        List of (speaker, text) tuples where speaker is "daniu" or "yifan".
 
-    Format:
+    Format in markdown:
     【大牛】Text spoken by Daniu using Luo Xiang voice.
     【一帆】Text spoken by Yifan using Doubao voice.
     """
     with open(filename, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    daniu_segments = []
-    yifan_segments = []
+    segments: List[Tuple[str, str]] = []
     current_speaker = None
     current_text = ""
 
@@ -149,10 +148,8 @@ def parse_markdown(filename: str, node=None, log_level="INFO") -> Tuple[List[str
         if match:
             # Save previous speaker's text
             if current_speaker and current_text.strip():
-                if current_speaker == '大牛':
-                    daniu_segments.append(current_text.strip())
-                else:
-                    yifan_segments.append(current_text.strip())
+                speaker_key = "daniu" if current_speaker == '大牛' else "yifan"
+                segments.append((speaker_key, current_text.strip()))
 
             # Start new speaker
             current_speaker = match.group(1)
@@ -165,15 +162,20 @@ def parse_markdown(filename: str, node=None, log_level="INFO") -> Tuple[List[str
 
     # Don't forget the last speaker
     if current_speaker and current_text.strip():
-        if current_speaker == '大牛':
-            daniu_segments.append(current_text.strip())
-        else:
-            yifan_segments.append(current_text.strip())
+        speaker_key = "daniu" if current_speaker == '大牛' else "yifan"
+        segments.append((speaker_key, current_text.strip()))
 
     if node:
-        send_log(node, "INFO", f"Parsed {len(daniu_segments)} segments from 大牛, {len(yifan_segments)} segments from 一帆", log_level)
+        daniu_count = sum(1 for speaker, _ in segments if speaker == "daniu")
+        yifan_count = sum(1 for speaker, _ in segments if speaker == "yifan")
+        send_log(
+            node,
+            "INFO",
+            f"Parsed {daniu_count} segments from 大牛, {yifan_count} segments from 一帆",
+            log_level,
+        )
 
-    return daniu_segments, yifan_segments
+    return segments
 
 
 def main():
@@ -196,74 +198,75 @@ def main():
 
     send_log(node, "INFO", f"Text segmentation config: max_duration={max_duration}s, chars_per_second={chars_per_second}, max_length={max_length} chars", args.log_level)
 
-    # Parse markdown
-    daniu_segments, yifan_segments = parse_markdown(args.input_file, node, args.log_level)
+    # Parse markdown and keep segments in script order
+    ordered_segments = parse_markdown(args.input_file, node, args.log_level)
 
-    # Apply text segmentation to long passages
-    daniu_chunks = []
-    for segment in daniu_segments:
-        chunks = split_long_text(segment, max_length, punctuation_marks, node, args.log_level)
-        daniu_chunks.extend(chunks)
+    # Apply text segmentation to long passages while preserving order
+    ordered_chunks: List[Tuple[str, str]] = []
+    daniu_total = 0
+    yifan_total = 0
 
-    yifan_chunks = []
-    for segment in yifan_segments:
+    for speaker, segment in ordered_segments:
         chunks = split_long_text(segment, max_length, punctuation_marks, node, args.log_level)
-        yifan_chunks.extend(chunks)
+        for chunk in chunks:
+            ordered_chunks.append((speaker, chunk))
+            if speaker == "daniu":
+                daniu_total += 1
+            else:
+                yifan_total += 1
 
     send_log(
         node,
         "INFO",
-        f"After text segmentation: {len(daniu_chunks)} total segments to process",
+        f"After text segmentation: {len(ordered_chunks)} total segments "
+        f"(大牛: {daniu_total}, 一帆: {yifan_total})",
         args.log_level,
     )
 
-    daniu_sent = 0
+    total_segments = len(ordered_chunks)
+    next_segment_idx = 0
+    completed_segments = 0
     daniu_completed = 0
-    yifan_sent = 0
     yifan_completed = 0
+    active_speaker: Optional[str] = None
 
-    def send_next_segment(speaker: str) -> bool:
-        """Send the next segment for the given speaker if available."""
-        nonlocal daniu_sent, yifan_sent
+    def send_next_segment() -> bool:
+        """Send the next segment in script order if no segment is active."""
+        nonlocal next_segment_idx, active_speaker
+
+        if active_speaker is not None:
+            return False
+
+        if next_segment_idx >= total_segments:
+            return False
+
+        speaker, segment = ordered_chunks[next_segment_idx]
+        next_segment_idx += 1
+        active_speaker = speaker
 
         if speaker == "daniu":
-            if daniu_sent >= len(daniu_chunks):
-                return False
-            segment = daniu_chunks[daniu_sent]
-            daniu_sent += 1
             send_log(node, "INFO", f"大牛: {segment}", args.log_level)
             node.send_output("daniu_text", pa.array([segment]))
-            return True
-
-        if speaker == "yifan":
-            if yifan_sent >= len(yifan_chunks):
-                return False
-            segment = yifan_chunks[yifan_sent]
-            yifan_sent += 1
+        else:
             send_log(node, "INFO", f"一帆: {segment}", args.log_level)
             node.send_output("yifan_text", pa.array([segment]))
-            return True
 
-        return False
+        return True
 
     def all_segments_sent() -> bool:
-        return daniu_sent >= len(daniu_chunks) and yifan_sent >= len(yifan_chunks)
+        return next_segment_idx >= total_segments
 
     def all_segments_completed() -> bool:
-        return (
-            daniu_completed >= len(daniu_chunks)
-            and yifan_completed >= len(yifan_chunks)
-        )
+        return completed_segments >= total_segments
 
     def finalize_script() -> None:
         send_log(node, "INFO", "All segments processed. Sending script_complete.", args.log_level)
         node.send_output("script_complete", pa.array([True]))
 
-    # Prime the pipeline so TTS nodes can begin immediately.
-    daniu_active = send_next_segment("daniu")
-    yifan_active = send_next_segment("yifan")
+    # Prime the pipeline with the first segment (if any)
+    initial_segment_sent = send_next_segment()
 
-    if not daniu_active and not yifan_active:
+    if not initial_segment_sent and total_segments == 0:
         finalize_script()
         return
 
@@ -284,7 +287,20 @@ def main():
         if event_id == "daniu_segment_complete":
             send_log(node, "DEBUG", "Received daniu_segment_complete", args.log_level)
             daniu_completed += 1
-            send_next_segment("daniu")
+
+            if active_speaker != "daniu":
+                send_log(
+                    node,
+                    "WARNING",
+                    "Received daniu_segment_complete without matching active segment.",
+                    args.log_level,
+                )
+            else:
+                active_speaker = None
+                completed_segments += 1
+
+            send_next_segment()
+
             if not script_complete_sent and all_segments_sent() and all_segments_completed():
                 finalize_script()
                 script_complete_sent = True
@@ -293,7 +309,20 @@ def main():
         elif event_id == "yifan_segment_complete":
             send_log(node, "DEBUG", "Received yifan_segment_complete", args.log_level)
             yifan_completed += 1
-            send_next_segment("yifan")
+
+            if active_speaker != "yifan":
+                send_log(
+                    node,
+                    "WARNING",
+                    "Received yifan_segment_complete without matching active segment.",
+                    args.log_level,
+                )
+            else:
+                active_speaker = None
+                completed_segments += 1
+
+            send_next_segment()
+
             if not script_complete_sent and all_segments_sent() and all_segments_completed():
                 finalize_script()
                 script_complete_sent = True

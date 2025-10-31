@@ -58,13 +58,12 @@ Generate engaging content with natural conversation flow.
 """
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": "You are a skilled podcast scriptwriter who creates engaging educational content in Chinese."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.7,
-        max_tokens=2000
+        max_completion_tokens=6000
     )
 
     return response.choices[0].message.content
