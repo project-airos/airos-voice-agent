@@ -210,39 +210,97 @@ def main():
         chunks = split_long_text(segment, max_length, punctuation_marks, node, args.log_level)
         yifan_chunks.extend(chunks)
 
-    send_log(node, "INFO", f"After text segmentation: {len(daniu_chunks)} total segments to process", args.log_level)
+    send_log(
+        node,
+        "INFO",
+        f"After text segmentation: {len(daniu_chunks)} total segments to process",
+        args.log_level,
+    )
 
-    # Send segments sequentially, waiting for completion signals
-    daniu_idx = 0
-    yifan_idx = 0
+    daniu_sent = 0
+    daniu_completed = 0
+    yifan_sent = 0
+    yifan_completed = 0
 
-    for event in node:
-        if event["type"] == "INPUT":
-            # Check for segment completion signals
-            if event["id"] == "daniu_segment_complete":
-                send_log(node, "DEBUG", "Received daniu_segment_complete", args.log_level)
-                if daniu_idx < len(daniu_chunks):
-                    segment = daniu_chunks[daniu_idx]
-                    send_log(node, "INFO", f"大牛: {segment}", args.log_level)
-                    node.send_output("daniu_text", pa.array([segment]))
-                    daniu_idx += 1
-                else:
-                    send_log(node, "DEBUG", "All daniu segments sent", args.log_level)
+    def send_next_segment(speaker: str) -> bool:
+        """Send the next segment for the given speaker if available."""
+        nonlocal daniu_sent, yifan_sent
 
-            elif event["id"] == "yifan_segment_complete":
-                send_log(node, "DEBUG", "Received yifan_segment_complete", args.log_level)
-                if yifan_idx < len(yifan_chunks):
-                    segment = yifan_chunks[yifan_idx]
-                    send_log(node, "INFO", f"一帆: {segment}", args.log_level)
-                    node.send_output("yifan_text", pa.array([segment]))
-                    yifan_idx += 1
-                else:
-                    send_log(node, "DEBUG", "All yifan segments sent", args.log_level)
+        if speaker == "daniu":
+            if daniu_sent >= len(daniu_chunks):
+                return False
+            segment = daniu_chunks[daniu_sent]
+            daniu_sent += 1
+            send_log(node, "INFO", f"大牛: {segment}", args.log_level)
+            node.send_output("daniu_text", pa.array([segment]))
+            return True
 
-    # Check if all segments are done and send completion signal
-    if daniu_idx >= len(daniu_chunks) and yifan_idx >= len(yifan_chunks):
+        if speaker == "yifan":
+            if yifan_sent >= len(yifan_chunks):
+                return False
+            segment = yifan_chunks[yifan_sent]
+            yifan_sent += 1
+            send_log(node, "INFO", f"一帆: {segment}", args.log_level)
+            node.send_output("yifan_text", pa.array([segment]))
+            return True
+
+        return False
+
+    def all_segments_sent() -> bool:
+        return daniu_sent >= len(daniu_chunks) and yifan_sent >= len(yifan_chunks)
+
+    def all_segments_completed() -> bool:
+        return (
+            daniu_completed >= len(daniu_chunks)
+            and yifan_completed >= len(yifan_chunks)
+        )
+
+    def finalize_script() -> None:
         send_log(node, "INFO", "All segments processed. Sending script_complete.", args.log_level)
         node.send_output("script_complete", pa.array([True]))
+
+    # Prime the pipeline so TTS nodes can begin immediately.
+    daniu_active = send_next_segment("daniu")
+    yifan_active = send_next_segment("yifan")
+
+    if not daniu_active and not yifan_active:
+        finalize_script()
+        return
+
+    script_complete_sent = False
+
+    for event in node:
+        event_type = event.get("type")
+
+        if event_type == "STOP":
+            send_log(node, "INFO", "Received STOP event, terminating.", args.log_level)
+            break
+
+        if event_type != "INPUT":
+            continue
+
+        event_id = event.get("id")
+
+        if event_id == "daniu_segment_complete":
+            send_log(node, "DEBUG", "Received daniu_segment_complete", args.log_level)
+            daniu_completed += 1
+            send_next_segment("daniu")
+            if not script_complete_sent and all_segments_sent() and all_segments_completed():
+                finalize_script()
+                script_complete_sent = True
+                break
+
+        elif event_id == "yifan_segment_complete":
+            send_log(node, "DEBUG", "Received yifan_segment_complete", args.log_level)
+            yifan_completed += 1
+            send_next_segment("yifan")
+            if not script_complete_sent and all_segments_sent() and all_segments_completed():
+                finalize_script()
+                script_complete_sent = True
+                break
+
+    if not script_complete_sent and all_segments_completed():
+        finalize_script()
 
 
 if __name__ == "__main__":

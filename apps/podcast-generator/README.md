@@ -16,23 +16,32 @@ This application demonstrates:
 
 **New!** Generate a complete podcast from just a topic:
 
+### Option 1: Local TTS (PrimeSpeech)
+Requires model download but offline-capable:
 ```bash
-# Generate podcast about AI (5 minutes, OpenAI)
-OPENAI_API_KEY=sk-your-key ./generate_podcast.sh "人工智能的未来" 5 openai output/ai_podcast.wav
-
-# Generate podcast about blockchain (10 minutes, Anthropic)
-ANTHROPIC_API_KEY=sk-ant-your-key ./generate_podcast.sh "区块链技术详解" 10 anthropic output/blockchain.wav
+# Generate podcast about AI (5 minutes, OpenAI + local TTS)
+OPENAI_API_KEY=sk-your-key ./generate_podcast.sh "人工智能的未来" 5 openai output/ai_podcast.wav primespeech
 ```
+
+### Option 2: Cloud TTS (MiniMax) ✨ NEW
+No model download, fastest setup:
+```bash
+# Generate podcast about blockchain (10 minutes, Anthropic + cloud TTS)
+ANTHROPIC_API_KEY=sk-ant-key MINIMAX_API_KEY=minimax-key \
+  ./generate_podcast.sh "区块链技术详解" 10 anthropic output/blockchain.wav minimax
+```
+
+When MiniMax is selected you'll see a `🔐 Debug` line confirming the API key was detected (the value stays hidden so secrets never leak).
 
 This single command will:
 1. ✅ Generate a high-quality script using LLM
-2. ✅ Convert to speech with dual voices
+2. ✅ Convert to speech with dual voices (local or cloud)
 3. ✅ Add natural silence between speakers
 4. ✅ Output final WAV file
 
-**Try it now:**
+**Quick demo with defaults (uses local TTS):**
 ```bash
-./generate_podcast.sh "ChatGPT和大型语言模型的发展" 5 openai output/demo.wav
+OPENAI_API_KEY=sk-your-key ./generate_podcast.sh "ChatGPT的发展" 5 openai output/demo.wav
 ```
 
 ## Architecture
@@ -71,31 +80,43 @@ This single command will:
 
 This app supports multiple dataflow configurations:
 
-### 1. **Manual Script** - `dataflow.yml`
+### 1. **Manual Script + Local TTS** - `dataflow.yml`
 Pre-written markdown scripts with PrimeSpeech TTS:
 - Use `script_segmenter.py` with existing markdown files
 - Requires script files in `scripts/` directory
 - Local TTS (PrimeSpeech)
+- Requires ~10GB model download
 
-### 2. **Manual Script + MiniMax** - `dataflow-minimax.yml`
-Pre-written scripts with cloud TTS:
+### 2. **Manual Script + Cloud TTS** - `dataflow-minimax.yml`
+Pre-written scripts with MiniMax cloud TTS:
 - Same as above but uses MiniMax T2A API
 - Requires `MINIMAX_API_KEY`
 - No local models needed
+- Pay-per-use pricing
 
-### 3. **AI-Generated Script** - `dataflow-ai.yml` (Beta)
+### 3. **AI Script + Local TTS** - `dataflow-ai.yml`
 Fully automated from topic to audio:
-- WebSocket server accepts topic input
 - LLM generates script automatically
-- Seamless end-to-end pipeline
-- Coming soon!
+- Uses PrimeSpeech for local TTS
+- Requires LLM API key (OpenAI/Anthropic)
+- Requires ~10GB model download
+
+### 4. **AI Script + Cloud TTS** - `dataflow-ai-minimax.yml` ✨ NEW
+Fully cloud-based pipeline:
+- LLM generates script automatically
+- Uses MiniMax for cloud TTS
+- Requires LLM + MiniMax API keys
+- No local models needed
+- Fastest setup, pay-per-use
 
 ### Quick Workflow Comparison
 
-| Workflow | Setup Time | Controls | Use Case |
-|----------|-----------|----------|----------|
-| Manual Script | ⏱️ Fast | ✅ Full control | Pre-written content |
-| AI-Generated | ⚡ Instant | ⚙️ Minimal | Quick experiments |
+| Workflow | Script Source | TTS Backend | Setup | Models Required | Use Case |
+|----------|--------------|-------------|-------|----------------|----------|
+| `dataflow.yml` | Manual | PrimeSpeech (local) | Medium | ~10GB | Full control, offline capable |
+| `dataflow-minimax.yml` | Manual | MiniMax (cloud) | Fast | None | Pre-written scripts, cloud TTS |
+| `dataflow-ai.yml` | AI-generated | PrimeSpeech (local) | Medium | ~10GB | Automated, offline TTS |
+| `dataflow-ai-minimax.yml` ✨ | AI-generated | MiniMax (cloud) | **Fastest** | None | **Fully automated, cloud-only** |
 
 ## Prerequisites
 
@@ -339,6 +360,37 @@ python3 script_segmenter.py --input-file output/script.md
 - Set `ANTHROPIC_API_KEY` environment variable
 - High-quality content generation
 - Good for complex topics
+
+### Supported TTS Backends
+
+**PrimeSpeech (Local):**
+- Runs locally, no API key needed
+- Requires ~10GB model download
+- Offline-capable
+- Voices: Doubao, Luo Xiang, Yang Mi, Zhou Jielun, Ma Yun, etc.
+- Configure in `dataflow.yml` or `dataflow-ai.yml`
+
+**MiniMax T2A (Cloud):**
+- Cloud API, requires `MINIMAX_API_KEY`
+- No model download needed
+- High-quality voices with speed/pitch/volume control
+- Pay-per-use pricing
+- Custom voice IDs supported
+- Configure in `dataflow-minimax.yml` or `dataflow-ai-minimax.yml`
+
+**MiniMax Configuration:**
+```bash
+# Required
+export MINIMAX_API_KEY=your-api-key
+
+# Optional tuning (defaults work well)
+export MINIMAX_SPEED=1.0      # 0.5 - 2.0
+export MINIMAX_VOL=1.0        # 0.0 - 2.0
+export MINIMAX_PITCH=0        # -12 to +12
+export SAMPLE_RATE=32000      # 8000, 16000, 24000, or 32000
+```
+
+Get your MiniMax API key from: https://platform.minimax.io/user-center/basic-information/interface-key
 
 ### Script Format
 
