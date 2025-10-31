@@ -24,7 +24,7 @@ OPENAI_API_KEY=sk-your-key ./generate_podcast.sh "人工智能的未来" 5 opena
 ```
 
 ### Option 2: Cloud TTS (MiniMax) ✨ NEW
-No model download, fastest setup:
+No model download, fastest setup (keys can be exported or stored in `.env`):
 ```bash
 # Generate podcast about blockchain (10 minutes, Anthropic + cloud TTS)
 ANTHROPIC_API_KEY=sk-ant-key MINIMAX_API_KEY=minimax-key \
@@ -34,10 +34,9 @@ ANTHROPIC_API_KEY=sk-ant-key MINIMAX_API_KEY=minimax-key \
 When MiniMax is selected you'll see a `🔐 Debug` line confirming the API key was detected (the value stays hidden so secrets never leak).
 
 ### Option 3: Prompt File Demo (MiniMax)
-Want a ready-made prompt? Use the bundled `sample_prompt.txt` that lives beside the script:
+Want a ready-made prompt? Use the bundled `sample_prompt.txt` that lives beside the script (API keys can live in `.env`):
 ```bash
-OPENAI_API_KEY=sk-your-key MINIMAX_API_KEY=minimax-key \
-  ./generate_podcast.sh --topic-file sample_prompt.txt 8
+./generate_podcast.sh --topic-file sample_prompt.txt 8
 ```
 
 This runs the fully automated pipeline with OpenAI for script generation, MiniMax for speech, and saves audio to the default `output/ai_generated_podcast.wav`.

@@ -24,6 +24,8 @@ export ANTHROPIC_API_KEY=sk-ant-your-anthropic-key
 export MINIMAX_API_KEY=your-minimax-api-key
 ```
 
+Prefer `.env`? Drop the same keys into `apps/podcast-generator/.env` (or the repo root `.env`) and `generate_podcast.sh` will load them automatically.
+
 Get your keys from:
 - OpenAI: https://platform.openai.com/api-keys
 - Anthropic: https://console.anthropic.com/
