@@ -43,6 +43,9 @@ Get your keys from:
 
 # Chinese design topic with MiniMax cloud voices
 ./generate_podcast.sh "人工智能AIGC对艺术设计的影响及商业机会探讨, 区域及民族遗文化因素怎么和大模型做适配及finetune" 5 openai output/ai_podcast.wav minimax
+
+# Use the included sample prompt file (8-minute show, default output path)
+./generate_podcast.sh --topic-file sample_prompt.txt 8
 ```
 
 Each MiniMax run prints a `🔐 Debug` line so you know the API key was detected (the value stays hidden—no secrets in the log).

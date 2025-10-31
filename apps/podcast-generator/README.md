@@ -33,6 +33,15 @@ ANTHROPIC_API_KEY=sk-ant-key MINIMAX_API_KEY=minimax-key \
 
 When MiniMax is selected you'll see a `🔐 Debug` line confirming the API key was detected (the value stays hidden so secrets never leak).
 
+### Option 3: Prompt File Demo (MiniMax)
+Want a ready-made prompt? Use the bundled `sample_prompt.txt` that lives beside the script:
+```bash
+OPENAI_API_KEY=sk-your-key MINIMAX_API_KEY=minimax-key \
+  ./generate_podcast.sh --topic-file sample_prompt.txt 8
+```
+
+This runs the fully automated pipeline with OpenAI for script generation, MiniMax for speech, and saves audio to the default `output/ai_generated_podcast.wav`.
+
 This single command will:
 1. ✅ Generate a high-quality script using LLM
 2. ✅ Convert to speech with dual voices (local or cloud)
