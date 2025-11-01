@@ -45,6 +45,7 @@ Requirements:
 - Style: Conversational, educational, engaging
 - Content: High-quality, informative, factually accurate
 - Formatting: No bullet lists, numbered lists, markdown tables, or other special formatting—output plain conversational sentences suitable for TTS.
+- Speaker tags must be EXACTLY "【大牛】" or "【一帆】" at the start of each utterance. Do not introduce alternative names or symbols.
 - Speakers:
   * 大牛: Technical expert, explains complex topics clearly
   * 一帆: Curious interviewer, asks good questions and engages the audience
@@ -84,6 +85,7 @@ Requirements:
 - Style: Conversational, educational, engaging
 - Content: High-quality, informative, factually accurate
 - Formatting: No bullet lists, numbered lists, markdown tables, or other special formatting—output plain conversational sentences suitable for TTS.
+- Speaker tags must be EXACTLY "【大牛】" or "【一帆】" at the start of each utterance. Do not introduce alternative names or symbols.
 - Speakers:
   * 大牛: Technical expert, explains complex topics clearly
   * 一帆: Curious interviewer, asks good questions and engages the audience

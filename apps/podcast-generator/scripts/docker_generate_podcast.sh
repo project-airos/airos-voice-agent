@@ -19,19 +19,54 @@ trap cleanup EXIT
 
 cd /opt/airos/apps/podcast-generator
 
-echo "=========================================="
-echo "Step 1: Generating script with LLM..."
-echo "=========================================="
-echo ""
+SCRIPT_OUTPUT_FILE="output/script_temp.md"
 
 mkdir -p output
 mkdir -p "$(dirname "${PG_OUTPUT_FILE:?Output file not set}")"
 
-python3 script_generator.py \
-    --topic "${PG_TOPIC:?Topic not set}" \
-    --provider "${PG_PROVIDER:?Provider not set}" \
-    --duration "${PG_DURATION:?Duration not set}" \
-    --output-file "output/script_temp.md"
+if [ "${PG_USE_EXISTING_SCRIPT:-0}" = "1" ]; then
+    echo "=========================================="
+    echo "Step 1: Using provided script..."
+    echo "=========================================="
+    echo ""
+
+    if [ -z "${PG_EXISTING_SCRIPT_FILE:-}" ]; then
+        echo "❌ Error: PG_EXISTING_SCRIPT_FILE is not set while PG_USE_EXISTING_SCRIPT=1."
+        exit 1
+    fi
+
+    if [ ! -f "${PG_EXISTING_SCRIPT_FILE}" ]; then
+        echo "❌ Error: Provided script file not found inside container: ${PG_EXISTING_SCRIPT_FILE}"
+        exit 1
+    fi
+
+    if [ ! -s "${PG_EXISTING_SCRIPT_FILE}" ]; then
+        echo "❌ Error: Provided script file is empty inside container: ${PG_EXISTING_SCRIPT_FILE}"
+        exit 1
+    fi
+
+    if [ "${PG_EXISTING_SCRIPT_FILE}" != "$SCRIPT_OUTPUT_FILE" ]; then
+        cp "${PG_EXISTING_SCRIPT_FILE}" "$SCRIPT_OUTPUT_FILE"
+    fi
+
+    echo "📄 Script ready: $SCRIPT_OUTPUT_FILE"
+    if [ -n "${PG_SPEAKER1_ALIAS:-}" ] || [ -n "${PG_SPEAKER2_ALIAS:-}" ]; then
+        echo "👥 Speaker tags mapped to canonical voices:"
+        echo "   ${PG_SPEAKER1_ALIAS:-大牛} → 大牛"
+        echo "   ${PG_SPEAKER2_ALIAS:-一帆} → 一帆"
+    fi
+else
+    echo "=========================================="
+    echo "Step 1: Generating script with LLM..."
+    echo "=========================================="
+    echo ""
+
+    python3 script_generator.py \
+        --topic "${PG_TOPIC:?Topic not set}" \
+        --provider "${PG_PROVIDER:?Provider not set}" \
+        --duration "${PG_DURATION:?Duration not set}" \
+        --output-file "$SCRIPT_OUTPUT_FILE"
+fi
 
 echo ""
 echo "=========================================="
@@ -61,7 +96,7 @@ VOICE_PID=$!
 sleep 2
 
 echo "📝 Starting script segmenter..."
-python3 script_segmenter.py --input-file "output/script_temp.md"
+python3 script_segmenter.py --input-file "$SCRIPT_OUTPUT_FILE"
 
 wait "${VOICE_PID}"
 
@@ -71,5 +106,5 @@ echo "✅ Podcast generation complete!"
 echo "=========================================="
 echo ""
 echo "📁 Output file: ${PG_OUTPUT_FILE}"
-echo "📄 Script file: output/script_temp.md"
+echo "📄 Script file: $SCRIPT_OUTPUT_FILE"
 echo ""
